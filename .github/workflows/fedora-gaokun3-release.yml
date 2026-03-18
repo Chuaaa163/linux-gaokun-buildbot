@@ -123,7 +123,7 @@ jobs:
             gnome-tweaks flatpak google-noto-sans-cjk-fonts adwaita-mono-fonts \
             fcitx5-chinese-addons fcitx5-configtool \
             parted iproute net-tools traceroute ncat telnet iputils which \
-            f44-backgrounds-gnome mpv vim git openssh-server curl htop fastfetch screen nano firefox
+            mpv vim git openssh-server curl htop fastfetch screen nano firefox
 
       - name: Populate rootfs (kernel + firmware + tools)
         run: |
