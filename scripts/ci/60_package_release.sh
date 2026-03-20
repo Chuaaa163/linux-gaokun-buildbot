@@ -25,30 +25,30 @@ if [ "$(stat -c '%s' "$ZST_FILE")" -lt "$SPLIT_THRESHOLD_BYTES" ]; then
   cat > "$RELEASE_BODY_FILE" <<EOF
 ## Build Information
 
-- Distribution: `Fedora Linux ${FEDORA_RELEASE}`
-- Kernel Tag: `${KERNEL_TAG}`
-- Kernel Release: `${KREL}`
-- Architecture: `arm64`
-- Root Filesystem: `Btrfs (@, @home, @var)`
-- Bootloader: `GRUB2 (BLS disabled, traditional grub.cfg)`
-- Image File: `${IMAGE_BASENAME}`
-- Compressed File: `${IMAGE_BASENAME}.zst`
-- Build Time (UTC): `$(date -u +"%Y-%m-%dT%H:%M:%SZ")`
+- Distribution: \`Fedora Linux ${FEDORA_RELEASE}\`
+- Kernel Tag: \`${KERNEL_TAG}\`
+- Kernel Release: \`${KREL}\`
+- Architecture: \`arm64\`
+- Root Filesystem: \`Btrfs (@, @home, @var)\`
+- Bootloader: \`GRUB2 (BLS disabled, traditional grub.cfg)\`
+- Image File: \`${IMAGE_BASENAME}\`
+- Compressed File: \`${IMAGE_BASENAME}.zst\`
+- Build Time (UTC): \`$(date -u +"%Y-%m-%dT%H:%M:%SZ")\`
 
 ## Rootfs Selection
 
-- Desktop Environment: `${DESKTOP_ENVIRONMENT}`
-- Excluded Packages: `${EXCLUDED_PACKAGES}`
-- Extra Packages: `${EXTRA_PACKAGES}`
+- Desktop Environment: \`${DESKTOP_ENVIRONMENT}\`
+- Excluded Packages: \`${EXCLUDED_PACKAGES}\`
+- Extra Packages: \`${EXTRA_PACKAGES}\`
 
 ## Default Login
 
-- Username: `user`
-- Password: `user`
+- Username: \`user\`
+- Password: \`user\`
 
 ## Display Note
 
-- If the GDM login screen has incorrect rotation, primary display selection, or external monitor layout, first fix the display settings in the user session, then copy `~/.config/monitors.xml` to `/var/lib/gdm/seat0/config/monitors.xml` and run `chown --reference=/var/lib/gdm/seat0/config /var/lib/gdm/seat0/config/monitors.xml`.
+- If the GDM login screen has incorrect rotation, primary display selection, or external monitor layout, first fix the display settings in the user session, then copy \`~/.config/monitors.xml\` to \`/var/lib/gdm/seat0/config/monitors.xml\` and run \`chown --reference=/var/lib/gdm/seat0/config /var/lib/gdm/seat0/config/monitors.xml\`.
 EOF
 else
   split -b "$IMAGE_CHUNK_SIZE" -d -a 3 \
@@ -58,30 +58,30 @@ else
   cat > "$RELEASE_BODY_FILE" <<EOF
 ## Build Information
 
-- Distribution: `Fedora Linux ${FEDORA_RELEASE}`
-- Kernel Tag: `${KERNEL_TAG}`
-- Kernel Release: `${KREL}`
-- Architecture: `arm64`
-- Root Filesystem: `Btrfs (@, @home, @var)`
-- Bootloader: `GRUB2 (BLS disabled, traditional grub.cfg)`
-- Image File: `${IMAGE_BASENAME}`
-- Compressed File: `${IMAGE_BASENAME}.zst`
-- Build Time (UTC): `$(date -u +"%Y-%m-%dT%H:%M:%SZ")`
+- Distribution: \`Fedora Linux ${FEDORA_RELEASE}\`
+- Kernel Tag: \`${KERNEL_TAG}\`
+- Kernel Release: \`${KREL}\`
+- Architecture: \`arm64\`
+- Root Filesystem: \`Btrfs (@, @home, @var)\`
+- Bootloader: \`GRUB2 (BLS disabled, traditional grub.cfg)\`
+- Image File: \`${IMAGE_BASENAME}\`
+- Compressed File: \`${IMAGE_BASENAME}.zst\`
+- Build Time (UTC): \`$(date -u +"%Y-%m-%dT%H:%M:%SZ")\`
 
 ## Rootfs Selection
 
-- Desktop Environment: `${DESKTOP_ENVIRONMENT}`
-- Excluded Packages: `${EXCLUDED_PACKAGES}`
-- Extra Packages: `${EXTRA_PACKAGES}`
+- Desktop Environment: \`${DESKTOP_ENVIRONMENT}\`
+- Excluded Packages: \`${EXCLUDED_PACKAGES}\`
+- Extra Packages: \`${EXTRA_PACKAGES}\`
 
 ## Default Login
 
-- Username: `user`
-- Password: `user`
+- Username: \`user\`
+- Password: \`user\`
 
 ## Display Note
 
-- If the GDM login screen has incorrect rotation, primary display selection, or external monitor layout, first fix the display settings in the user session, then copy `~/.config/monitors.xml` to `/var/lib/gdm/seat0/config/monitors.xml` and run `chown --reference=/var/lib/gdm/seat0/config /var/lib/gdm/seat0/config/monitors.xml`.
+- If the GDM login screen has incorrect rotation, primary display selection, or external monitor layout, first fix the display settings in the user session, then copy \`~/.config/monitors.xml\` to \`/var/lib/gdm/seat0/config/monitors.xml\` and run \`chown --reference=/var/lib/gdm/seat0/config /var/lib/gdm/seat0/config/monitors.xml\`.
 
 ## Reassemble And Decompress
 
