@@ -112,13 +112,31 @@ echo $KREL
 ```bash
 mkdir -p $ROOTFS_DIR
 
+sudo dnf -y install glibc-langpack-en glibc-langpack-zh
+export LANG=zh_CN.UTF-8
+export LC_ALL=zh_CN.UTF-8
+export LANGUAGE=zh_CN:zh
+
+# 第一步先安装基础系统、locale 和 langpacks
+sudo dnf --installroot=$ROOTFS_DIR --releasever=44 --forcearch=aarch64 --use-host-config -y \
+    install \
+    @core @standard \
+    grub2-efi-aa64-modules efibootmgr shim-aa64 alsa-ucm \
+    glibc-langpack-en glibc-langpack-zh \
+    langpacks-en langpacks-zh_CN ibus-typing-booster \
+    i2c-tools alsa-utils pipewire-utils
+
+sudo mkdir -p $ROOTFS_DIR/etc
+sudo tee $ROOTFS_DIR/etc/locale.conf > /dev/null <<EOF
+LANG=zh_CN.UTF-8
+LC_MESSAGES=zh_CN.UTF-8
+EOF
+
+# 第二步再安装桌面环境和应用，能更稳定地把中文翻译子包一起拉进 rootfs
 sudo dnf --installroot=$ROOTFS_DIR --releasever=44 --forcearch=aarch64 --use-host-config -y \
     --exclude=gnome-boxes,gnome-connections,gnome-browser-connector,snapshot,gnome-weather,gnome-contacts,gnome-maps,simple-scan,gnome-clocks,gnome-calculator,gnome-calendar \
     install \
-    @core @standard @gnome-desktop \
-    grub2-efi-aa64-modules efibootmgr shim-aa64 alsa-ucm \
-    langpacks-en langpacks-zh_CN ibus-typing-booster \
-    i2c-tools alsa-utils pipewire-utils \
+    @gnome-desktop \
     fcitx5-chinese-addons gnome-tweaks telnet mpv v4l-utils vim git htop fastfetch screen firefox
 ```
 
@@ -273,6 +291,17 @@ chmod 440 /etc/sudoers.d/wheel-nopasswd
 cat > /etc/locale.conf <<EOF
 LANG=zh_CN.UTF-8
 LC_MESSAGES=zh_CN.UTF-8
+EOF
+
+mkdir -p /var/lib/AccountsService/users
+cat > /var/lib/AccountsService/users/user <<EOF
+[User]
+Language=zh_CN.UTF-8
+EOF
+cat > /var/lib/AccountsService/users/gdm <<EOF
+[User]
+Language=zh_CN.UTF-8
+SystemAccount=true
 EOF
 
 # 预置屏幕方向与缩放，并同步给 GDM 登录界面

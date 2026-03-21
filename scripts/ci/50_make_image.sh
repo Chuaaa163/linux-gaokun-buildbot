@@ -79,6 +79,18 @@ LANG=zh_CN.UTF-8
 LC_MESSAGES=zh_CN.UTF-8
 EOF
 
+# Make both the login user and GDM greeter inherit the image locale by default.
+mkdir -p /var/lib/AccountsService/users
+cat > /var/lib/AccountsService/users/user <<'EOF'
+[User]
+Language=zh_CN.UTF-8
+EOF
+cat > /var/lib/AccountsService/users/gdm <<'EOF'
+[User]
+Language=zh_CN.UTF-8
+SystemAccount=true
+EOF
+
 mkdir -p /home/user/.config
 cat > /home/user/.config/monitors.xml <<'EOF'
 <monitors version="2">
