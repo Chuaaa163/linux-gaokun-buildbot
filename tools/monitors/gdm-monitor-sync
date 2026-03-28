@@ -9,6 +9,7 @@ pick_gdm_dir() {
 
   for candidate in \
     /var/lib/gdm3/.config \
+    /var/lib/gdm3/seat0/config \
     /var/lib/gdm/.config \
     /var/lib/gdm/seat0/config; do
     if [[ -d "$candidate" ]]; then

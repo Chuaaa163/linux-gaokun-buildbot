@@ -63,8 +63,12 @@ echo "%sudo ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/sudo-nopasswd
 chmod 440 /etc/sudoers.d/sudo-nopasswd
 cat > /etc/default/locale <<'EOF'
 LANG=zh_CN.UTF-8
+LANGUAGE=zh_CN:en_US:en
 LC_MESSAGES=zh_CN.UTF-8
 EOF
+
+rm -f /etc/resolv.conf
+ln -s /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 
 mkdir -p /var/lib/AccountsService/users
 cat > /var/lib/AccountsService/users/user <<'EOF'
@@ -108,16 +112,26 @@ cat > /home/user/.config/monitors.xml <<'EOF'
     </configuration>
 </monitors>
 EOF
-chown user:user /home/user/.config/monitors.xml
+chown -R user:user /home/user
 
 install -d -m 1777 -o root -g root /tmp/.X11-unix
-mkdir -p /etc/tmpfiles.d
-cat > /etc/tmpfiles.d/gaokun-x11.conf <<'EOF'
-d /tmp/.X11-unix 1777 root root -
+
+cat > /etc/systemd/system/gaokun-fix-x11-unix.service <<'EOF'
+[Unit]
+Description=Fix /tmp/.X11-unix ownership for Xwayland
+After=gdm.service
+Wants=gdm.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'mkdir -p /tmp/.X11-unix && chown root:root /tmp/.X11-unix && chmod 1777 /tmp/.X11-unix'
+
+[Install]
+WantedBy=graphical.target
 EOF
 
 systemctl enable gdm NetworkManager ssh huawei-touchpad.service \
-  gdm-monitor-sync.service || true
+  gaokun-fix-x11-unix.service gdm-monitor-sync.service || true
 
 mkdir -p /etc/modules-load.d
 echo -e "pci-pwrctrl-pwrseq\nath11k_pci" > /etc/modules-load.d/wifi.conf
@@ -156,27 +170,43 @@ update-initramfs -c -k "$KREL"
 # Ubuntu GRUB's 10_linux looks for /boot/dtb-$KREL
 cp "/usr/lib/linux-image-$KREL/qcom/sc8280xp-huawei-gaokun3.dtb" "/boot/dtb-$KREL"
 
-cat > /etc/default/grub <<GRUBEOF
+ROOT_UUID="$(blkid -s UUID -o value /dev/disk/by-label/rootfs)"
+mkdir -p /boot/efi/EFI/BOOT /boot/efi/EFI/ubuntu
+cat > /etc/default/grub <<'EOF'
 GRUB_DEFAULT=0
 GRUB_TIMEOUT=5
 GRUB_DISTRIBUTOR="Ubuntu"
 GRUB_CMDLINE_LINUX_DEFAULT=""
 GRUB_CMDLINE_LINUX="clk_ignore_unused pd_ignore_unused arm64.nopauth iommu.passthrough=0 iommu.strict=0 pcie_aspm.policy=powersupersave modprobe.blacklist=simpledrm efi=noruntime fbcon=rotate:1 usbhid.quirks=0x12d1:0x10b8:0x20000000 consoleblank=0 loglevel=4 psi=1"
-GRUBEOF
+GRUB_DISABLE_OS_PROBER=true
+GRUB_DISABLE_SUBMENU=false
+GRUB_DISABLE_LINUX_UUID=false
+GRUB_TERMINAL_OUTPUT=gfxterm
+GRUB_GFXMODE=auto
+GRUB_GFXPAYLOAD_LINUX=keep
+GRUB_RECORDFAIL_TIMEOUT=5
+EOF
 
-echo 'GRUB_DISABLE_OS_PROBER=true' >> /etc/default/grub
-grub-install --target=arm64-efi --efi-directory=/boot/efi --boot-directory=/boot --removable --force
+cat > /tmp/early-grub.cfg <<EOF
+search --no-floppy --fs-uuid --set=root ${ROOT_UUID}
+set prefix=(\$root)/boot/grub
+EOF
+
+grub-mkimage -c /tmp/early-grub.cfg \
+    -o /boot/efi/EFI/BOOT/BOOTAA64.EFI \
+    -O arm64-efi -p /boot/grub \
+    part_gpt ext2 fat search search_fs_uuid search_label normal linux echo
+
+rm -f /tmp/early-grub.cfg
 update-grub
-sed -i '/^GRUB_DISABLE_OS_PROBER=true$/d' /etc/default/grub
 
-ROOT_UUID="$(blkid -s UUID -o value /dev/disk/by-label/rootfs)"
-mkdir -p /boot/efi/EFI/BOOT /boot/efi/EFI/ubuntu
-tee "/boot/efi/EFI/BOOT/grub.cfg" >/dev/null <<EOF
-search.fs_uuid ${ROOT_UUID} root
-set prefix=(\$root)'/boot/grub'
+cat > /boot/efi/EFI/BOOT/grub.cfg <<EOF
+search --no-floppy --fs-uuid --set=root ${ROOT_UUID}
+set prefix=(\$root)/boot/grub
 configfile \$prefix/grub.cfg
 EOF
-cp "/boot/efi/EFI/BOOT/grub.cfg" "/boot/efi/EFI/ubuntu/grub.cfg"
+cp /boot/efi/EFI/BOOT/BOOTAA64.EFI /boot/efi/EFI/ubuntu/BOOTAA64.EFI
+cp /boot/efi/EFI/BOOT/grub.cfg /boot/efi/EFI/ubuntu/grub.cfg
 
 # Validate GRUB generated correctly
 grep -n "devicetree\|dtb" /boot/grub/grub.cfg || true

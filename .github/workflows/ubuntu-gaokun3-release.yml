@@ -22,7 +22,7 @@ on:
       extra_packages:
         description: Extra packages to install (space-separated)
         required: true
-        default: "fcitx5-chinese-addons gnome-tweaks gnome-shell-extension-manager mpv v4l-utils vim git htop fastfetch screen alsa-utils pipewire-alsa i2c-tools ssh firefox fonts-noto-color-emoji gstreamer1.0-libav gstreamer1.0-plugins-ugly"
+        default: "fcitx5-chinese-addons gnome-tweaks gnome-shell-extension-manager mpv v4l-utils vim git htop fastfetch screen ssh firefox"
       rebuild_package_debs:
         description: Rebuild gaokun package DEBs before image build
         required: true
@@ -173,7 +173,7 @@ jobs:
             apt-get install -y locales
             sed -i "s/# zh_CN.UTF-8/zh_CN.UTF-8/" /etc/locale.gen
             locale-gen
-            update-locale LANG=zh_CN.UTF-8 LC_MESSAGES=zh_CN.UTF-8
+            update-locale LANG=zh_CN.UTF-8 LANGUAGE=zh_CN:en_US:en LC_MESSAGES=zh_CN.UTF-8
 
             apt-get install -y \
               linux-base initramfs-tools kmod \
@@ -202,8 +202,15 @@ jobs:
 
             apt-get update
 
-            apt-get install -y '"$DESKTOP_ENVIRONMENT"' '"$EXTRA_PACKAGES"'
+            apt-get install -y \
+              '"$DESKTOP_ENVIRONMENT"' \
+              language-pack-gnome-zh-hans fonts-noto-cjk fonts-noto-color-emoji \
+              gstreamer1.0-libav gstreamer1.0-plugins-ugly \
+              alsa-utils pipewire-alsa \
+              '"$EXTRA_PACKAGES"'
 
+            # We use ptyxis instead of gnome-terminal
+            apt purge --auto-remove -y gnome-terminal
             apt-get clean
           '
 

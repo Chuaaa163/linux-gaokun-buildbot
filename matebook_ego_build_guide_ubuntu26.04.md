@@ -56,7 +56,7 @@ fi
 export GAOKUN_DIR=~/gaokun/linux-gaokun-buildbot
 export WORKDIR=~/gaokun/matebook-build-ubuntu
 export KERN_SRC=~/gaokun/mainline-linux
-export KERN_OUT=$GAOKUN_DIR/kernel-out
+export KERN_OUT=~/gaokun/kernel-out
 export FW_REPO=$GAOKUN_DIR/firmware
 export ROOTFS_DIR=$WORKDIR/rootfs
 export IMAGE_FILE=$WORKDIR/ubuntu-26.04-gaokun3.img
@@ -142,7 +142,9 @@ apt-get update
 apt-get install -y locales
 sed -i 's/# zh_CN.UTF-8/zh_CN.UTF-8/' /etc/locale.gen
 locale-gen
-update-locale LANG=zh_CN.UTF-8 LC_MESSAGES=zh_CN.UTF-8
+update-locale LANG=zh_CN.UTF-8 LANGUAGE=zh_CN:en_US:en LC_MESSAGES=zh_CN.UTF-8
+rm -f /etc/resolv.conf
+ln -s /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 
 # 先安装内核相关依赖以及 initramfs-tools
 apt-get install -y \
@@ -176,12 +178,14 @@ apt-get update
 # 安装桌面环境与常用软件
 apt-get install -y \
     ubuntu-desktop-minimal \
+    language-pack-gnome-zh-hans \
+    fonts-noto-cjk \
     fonts-noto-color-emoji \
     fcitx5-chinese-addons \
     gnome-tweaks gnome-shell-extension-manager \
     mpv v4l-utils vim git htop fastfetch screen \
     alsa-utils pipewire-alsa \
-    i2c-tools ssh \
+    ssh \
     firefox
 
 # 安装多媒体编解码器
@@ -191,15 +195,6 @@ apt-get install -y \
 
 apt-get clean
 exit
-```
-
-**恢复原有的 DNS 配置：**
-
-```bash
-sudo rm -f $ROOTFS_DIR/etc/resolv.conf
-if [ -e "$ROOTFS_DIR/etc/resolv.conf.bak" ]; then
-    sudo mv $ROOTFS_DIR/etc/resolv.conf.bak $ROOTFS_DIR/etc/resolv.conf
-fi
 ```
 
 回到宿主机，安装内核、模块、固件和本地工具到 rootfs：
@@ -388,11 +383,26 @@ cat > /home/user/.config/monitors.xml <<EOF
     </configuration>
 </monitors>
 EOF
-chown user:user /home/user/.config/monitors.xml
 
-# 开启图形、网络、SSH、触控板和首启显示同步服务
+# 开启图形、网络、SSH、触控板、显示同步和 Xwayland 目录修复服务
 systemctl enable gdm NetworkManager ssh huawei-touchpad.service \
-    gdm-monitor-sync.service
+    gaokun-fix-x11-unix.service gdm-monitor-sync.service
+
+install -d -m 1777 -o root -g root /tmp/.X11-unix
+
+cat > /etc/systemd/system/gaokun-fix-x11-unix.service <<'EOF'
+[Unit]
+Description=Fix /tmp/.X11-unix ownership for Xwayland
+After=gdm.service
+Wants=gdm.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'mkdir -p /tmp/.X11-unix && chown root:root /tmp/.X11-unix && chmod 1777 /tmp/.X11-unix'
+
+[Install]
+WantedBy=graphical.target
+EOF
 
 # 运行时与 initramfs 都需要的关键模块
 mkdir -p /etc/modules-load.d
@@ -404,6 +414,8 @@ echo -e "huawei-gaokun-ec\nhuawei-gaokun-battery\nucsi_huawei_gaokun" > /etc/mod
 
 mkdir -p /etc/modprobe.d
 echo "softdep pinctrl_sc8280xp_lpass_lpi pre: lpasscc_sc8280xp" > /etc/modprobe.d/audio-deps.conf
+
+chown -R user:user /home/user
 
 # Ubuntu 使用 initramfs-tools 生成 initramfs
 # 将关键模块写入 /etc/initramfs-tools/modules
@@ -432,27 +444,43 @@ MODEOF
 update-initramfs -c -k $KREL
 
 # 配置 GRUB
-cat > /etc/default/grub <<EOF
+ROOT_UUID=$(blkid -s UUID -o value /dev/disk/by-label/rootfs)
+
+sudo mkdir -p /boot/efi/EFI/BOOT /boot/efi/EFI/ubuntu
+cat > /etc/default/grub <<'EOF'
 GRUB_DEFAULT=0
 GRUB_TIMEOUT=5
 GRUB_DISTRIBUTOR="Ubuntu"
 GRUB_CMDLINE_LINUX_DEFAULT=""
 GRUB_CMDLINE_LINUX="clk_ignore_unused pd_ignore_unused arm64.nopauth iommu.passthrough=0 iommu.strict=0 pcie_aspm.policy=powersupersave modprobe.blacklist=simpledrm efi=noruntime fbcon=rotate:1 usbhid.quirks=0x12d1:0x10b8:0x20000000 consoleblank=0 loglevel=4 psi=1"
+GRUB_DISABLE_OS_PROBER=true
+GRUB_DISABLE_SUBMENU=false
+GRUB_DISABLE_LINUX_UUID=false
+GRUB_TERMINAL_OUTPUT=gfxterm
+GRUB_GFXMODE=auto
+GRUB_GFXPAYLOAD_LINUX=keep
+GRUB_RECORDFAIL_TIMEOUT=5
 EOF
 
-echo 'GRUB_DISABLE_OS_PROBER=true' >> /etc/default/grub
-grub-install --target=arm64-efi --efi-directory=/boot/efi --boot-directory=/boot --removable --force
+cat > /tmp/early-grub.cfg <<EOF
+search --no-floppy --fs-uuid --set=root ${ROOT_UUID}
+set prefix=(\$root)/boot/grub
+EOF
+
+grub-mkimage -c /tmp/early-grub.cfg \
+    -o /boot/efi/EFI/BOOT/BOOTAA64.EFI \
+    -O arm64-efi -p /boot/grub \
+    part_gpt ext2 fat search search_fs_uuid search_label normal linux echo
+
+rm -f /tmp/early-grub.cfg
 update-grub
-sed -i '/^GRUB_DISABLE_OS_PROBER=true$/d' /etc/default/grub
+sed -i 's/^GRUB_DISABLE_OS_PROBER=true$/GRUB_DISABLE_OS_PROBER=false/' /etc/default/grub
 
-# 给 EFI 分区写一个桥接 grub.cfg，按获取 rootfs 的 UUID
-ROOT_UUID=$(blkid -s UUID -o value /dev/disk/by-label/rootfs)
-
-sudo mkdir -p /boot/efi/EFI/BOOT /boot/efi/EFI/ubuntu
+sudo cp /boot/efi/EFI/BOOT/BOOTAA64.EFI /boot/efi/EFI/ubuntu/BOOTAA64.EFI
 sudo bash -c "cat > /boot/efi/EFI/BOOT/grub.cfg <<EOF
-search.fs_uuid ${ROOT_UUID} root
-set prefix=(\\\$root)'/boot/grub'
-configfile \\\$prefix/grub.cfg
+search --no-floppy --fs-uuid --set=root ${ROOT_UUID}
+set prefix=(\\\$root)/boot/grub
+configfile (\\\$root)/boot/grub/grub.cfg
 EOF"
 
 sudo cp /boot/efi/EFI/BOOT/grub.cfg /boot/efi/EFI/ubuntu/grub.cfg
@@ -500,4 +528,4 @@ sudo dd if=$IMAGE_FILE of=/dev/sdX bs=4M status=progress conv=fsync
 - 首次启动后如需扩容 ext4，可使用 `gnome-disks`，或执行 `sudo resize2fs /dev/nvme0n1p2`
 - 文中所有 `tools/` 与 firmware 都来自当前仓库，不依赖外部设备专属仓库
 - 如果你需要自动化构建，可直接参考 GitHub Actions workflow：`.github/workflows/ubuntu-gaokun3-release.yml`
-- 如果 GDM 登录界面的方向、主屏或外接显示器布局不对，先在用户会话里调好显示设置，再把 `~/.config/monitors.xml` 复制到 `/var/lib/gdm3/.config/monitors.xml`，并执行 `chown gdm:gdm /var/lib/gdm3/.config/monitors.xml`
+- 如果 GDM 登录界面的方向、主屏或外接显示器布局不对，先在用户会话里调好显示设置，再把 `~/.config/monitors.xml` 复制到 `/var/lib/gdm3/seat0/config/monitors.xml`，并执行 `chown --reference=/var/lib/gdm3/seat0/config /var/lib/gdm3/seat0/config/monitors.xml`
