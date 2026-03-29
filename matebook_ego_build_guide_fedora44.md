@@ -368,7 +368,7 @@ GRUBEOF
 echo 'GRUB_DISABLE_OS_PROBER=true' >> /etc/default/grub
 grub2-install --target=arm64-efi --efi-directory=/boot/efi --boot-directory=/boot --removable --force
 grub2-mkconfig -o /boot/grub2/grub.cfg
-sed -i '/^GRUB_DISABLE_OS_PROBER=true$/d' /etc/default/grub
+sed -i 's/^GRUB_DISABLE_OS_PROBER=true$/GRUB_DISABLE_OS_PROBER=false/' /etc/default/grub
 
 # 给 EFI 分区写一个桥接 grub.cfg，按 rootfs UUID 找到真正菜单
 mkdir -p /boot/efi/EFI/BOOT /boot/efi/EFI/fedora

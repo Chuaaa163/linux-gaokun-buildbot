@@ -203,6 +203,7 @@ update-grub
 
 mkdir -p /boot/grub/arm64-efi
 cp -a /usr/lib/grub/arm64-efi/. /boot/grub/arm64-efi/
+sed -i 's/^GRUB_DISABLE_OS_PROBER=true$/GRUB_DISABLE_OS_PROBER=false/' /etc/default/grub
 
 cat > /boot/efi/EFI/BOOT/grub.cfg <<EOF
 search --no-floppy --fs-uuid --set=root ${ROOT_UUID}
