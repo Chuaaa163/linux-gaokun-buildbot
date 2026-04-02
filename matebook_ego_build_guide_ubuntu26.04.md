@@ -378,31 +378,29 @@ fi
 bootctl --esp-path=/boot/efi install
 
 ROOT_UUID=$(blkid -s UUID -o value /dev/disk/by-label/rootfs)
-MACHINE_ID=$(cat /etc/machine-id)
 
 mkdir -p /boot/efi/loader/entries
 mkdir -p /boot/efi/gaokun3/ubuntu/$KREL
 
-cp /boot/vmlinuz-$KREL /boot/efi/gaokun3/ubuntu/$KREL/linux
-cp /boot/initrd.img-$KREL /boot/efi/gaokun3/ubuntu/$KREL/initrd
+cp /boot/vmlinuz-$KREL /boot/efi/gaokun3/ubuntu/$KREL/vmlinuz
+cp /boot/initrd.img-$KREL /boot/efi/gaokun3/ubuntu/$KREL/initrd.img
 cp /usr/lib/linux-image-$KREL/qcom/sc8280xp-huawei-gaokun3.dtb \
    /boot/efi/gaokun3/ubuntu/$KREL/sc8280xp-huawei-gaokun3.dtb
 
 cat > /boot/efi/loader/loader.conf <<EOF
-default ${MACHINE_ID}-ubuntu-gaokun3-${KREL}.conf
+default ubuntu-gaokun3.conf
 timeout 5
 console-mode keep
 editor no
 EOF
 
-cat > /boot/efi/loader/entries/${MACHINE_ID}-ubuntu-gaokun3-${KREL}.conf <<EOF
+cat > /boot/efi/loader/entries/ubuntu-gaokun3.conf <<EOF
 title Ubuntu 26.04
 version ${KREL}
-machine-id ${MACHINE_ID}
 sort-key gaokun3
 architecture AA64
-linux /gaokun3/ubuntu/${KREL}/linux
-initrd /gaokun3/ubuntu/${KREL}/initrd
+linux /gaokun3/ubuntu/${KREL}/vmlinuz
+initrd /gaokun3/ubuntu/${KREL}/initrd.img
 devicetree /gaokun3/ubuntu/${KREL}/sc8280xp-huawei-gaokun3.dtb
 options root=UUID=${ROOT_UUID} clk_ignore_unused pd_ignore_unused arm64.nopauth iommu.passthrough=0 iommu.strict=0 pcie_aspm.policy=powersupersave modprobe.blacklist=simpledrm efi=noruntime fbcon=rotate:1 usbhid.quirks=0x12d1:0x10b8:0x20000000 consoleblank=0 loglevel=4 psi=1
 EOF
@@ -412,19 +410,18 @@ if [ -n "$KREL_EL2" ]; then
     mkdir -p /boot/efi/EFI/systemd/drivers
     mkdir -p /boot/efi/firmware/qcom/sc8280xp/HUAWEI/gaokun3
 
-    cp /boot/vmlinuz-$KREL_EL2 /boot/efi/gaokun3/ubuntu/$KREL_EL2/linux
-    cp /boot/initrd.img-$KREL_EL2 /boot/efi/gaokun3/ubuntu/$KREL_EL2/initrd
+    cp /boot/vmlinuz-$KREL_EL2 /boot/efi/gaokun3/ubuntu/$KREL_EL2/vmlinuz
+    cp /boot/initrd.img-$KREL_EL2 /boot/efi/gaokun3/ubuntu/$KREL_EL2/initrd.img
     cp /usr/lib/linux-image-$KREL_EL2/qcom/sc8280xp-huawei-gaokun3-el2.dtb \
        /boot/efi/gaokun3/ubuntu/$KREL_EL2/sc8280xp-huawei-gaokun3-el2.dtb
 
-    cat > /boot/efi/loader/entries/${MACHINE_ID}-ubuntu-gaokun3-${KREL_EL2}.conf <<EOF
+    cat > /boot/efi/loader/entries/ubuntu-gaokun3-el2.conf <<EOF
 title Ubuntu 26.04 (EL2 Hypervisor)
 version ${KREL_EL2}
-machine-id ${MACHINE_ID}
 sort-key gaokun3-el2
 architecture AA64
-linux /gaokun3/ubuntu/${KREL_EL2}/linux
-initrd /gaokun3/ubuntu/${KREL_EL2}/initrd
+linux /gaokun3/ubuntu/${KREL_EL2}/vmlinuz
+initrd /gaokun3/ubuntu/${KREL_EL2}/initrd.img
 devicetree /gaokun3/ubuntu/${KREL_EL2}/sc8280xp-huawei-gaokun3-el2.dtb
 options root=UUID=${ROOT_UUID} clk_ignore_unused pd_ignore_unused arm64.nopauth iommu.passthrough=0 iommu.strict=0 pcie_aspm.policy=powersupersave modprobe.blacklist=simpledrm efi=noruntime fbcon=rotate:1 usbhid.quirks=0x12d1:0x10b8:0x20000000 consoleblank=0 loglevel=4 psi=1
 EOF

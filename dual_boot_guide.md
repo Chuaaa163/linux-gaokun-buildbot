@@ -10,22 +10,29 @@
 
 ## 二、备份虚拟磁盘 rootfs 并还原到内置硬盘
 
-1. 在 DG 中先挂载虚拟磁盘镜像。
+1. 在 DG 中选择“磁盘”-“打开磁盘镜像文件”，先挂载虚拟磁盘镜像。
 2. 找到镜像里的 Linux rootfs 分区，右键使用“备份分区到镜像文件”，备份类型选择“完整备份”，导出为 `rootfs.pmf`。
 3. 在内置硬盘分区上右键使用“拆分分区”，分区后部建立新分区，作为 Linux rootfs 目标分区。
-4. 对该新分区执行“还原分区”，选择刚才的 `rootfs.pmf`，完成 rootfs 写入。
+4. 对该新分区执行“从镜像文件还原分区”，选择刚才的 `rootfs.pmf`，完成 rootfs 写入。
 5. 检查还原后的分区“卷UUID”是否与虚拟磁盘镜像中的 rootfs 分区“卷UUID”一致。
 
-## 三、同步 EFI 目录
+## 三、同步 EFI 分区内容
 
-1. 从虚拟磁盘镜像中拷贝出完整的 `EFI` 目录。
-2. 打开内置硬盘 EFI 分区文件浏览，先将 `\EFI\BOOT\BOOTAA64.EFI` 备份为 `\EFI\BOOT\BOOTAA64.EFI.bak`。
-3. 把拷出的整个 `EFI` 目录直接拖入内置硬盘 EFI 分区根目录覆盖。
+1. 在 DG 中打开虚拟磁盘镜像的 EFI 分区文件浏览。
+2. 从镜像 EFI 分区根目录拷贝全部文件和文件夹到指定位置。
+3. 打开内置硬盘 EFI 分区文件浏览，先将 `\EFI\BOOT\BOOTAA64.EFI` 备份为 `\EFI\BOOT\BOOTAA64.EFI.bak`。
+4. 把指定位置下的镜像 EFI 分区根目录全部内容直接拖入内置硬盘 EFI 分区根目录覆盖。
 
-完成后，`EFI` 下通常应包含如下目录：
+完成后，内置硬盘 EFI 分区根目录通常应包含如下内容：
+- `EFI`
+- `loader`
+- `gaokun3`
+- `firmware`（若镜像包含 EL2）
+- `tcblaunch.exe`（若镜像包含 EL2）
+
+其中 `EFI` 下通常应包含：
 - `BOOT`
 - `systemd`
-- `Linux` 或镜像中对应的 loader entry / kernel 目录
 - `Microsoft`
 
 Windows 一般可由 `systemd-boot` 自动探测，所以无需额外修改 Windows 引导项。
@@ -49,6 +56,6 @@ Windows 一般可由 `systemd-boot` 自动探测，所以无需额外修改 Wind
 
 - 若启动菜单未出现，优先检查：
 	- `\EFI\BOOT\BOOTAA64.EFI` 是否已经被镜像中的 `systemd-boot` 覆盖
-	- EFI 目录结构是否完整（包含 `\EFI\systemd\`、`loader\entries\` 以及镜像中的内核 / initramfs / dtb 文件）
+	- EFI 分区根目录结构是否完整（包含 `\EFI\systemd\`、`loader\entries\`、`gaokun3\`，以及 EL2 所需的 `firmware\`、`tcblaunch.exe`）
 	- EFI 卷序列号是否与镜像一致
 - 若误操作导致无法启动，可启动 USB 存储设备上的 Linux 或 WinPE（推荐使用 [CNBYDJ PE](https://bydjpe.winos.me)）挂载内置硬盘 EFI 分区，使用先前备份的 `BOOTAA64.EFI.bak` 回滚。

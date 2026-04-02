@@ -327,31 +327,29 @@ fi
 bootctl --esp-path=/boot/efi install
 
 ROOT_UUID=$(blkid -s UUID -o value /dev/disk/by-label/rootfs)
-MACHINE_ID=$(cat /etc/machine-id)
 
 mkdir -p /boot/efi/loader/entries
 mkdir -p /boot/efi/gaokun3/fedora/$KREL
 
-cp /boot/vmlinuz-$KREL /boot/efi/gaokun3/fedora/$KREL/linux
-cp /boot/initramfs-$KREL.img /boot/efi/gaokun3/fedora/$KREL/initrd
+cp /boot/vmlinuz-$KREL /boot/efi/gaokun3/fedora/$KREL/vmlinuz
+cp /boot/initramfs-$KREL.img /boot/efi/gaokun3/fedora/$KREL/initramfs.img
 cp /boot/dtb-$KREL/qcom/sc8280xp-huawei-gaokun3.dtb \
    /boot/efi/gaokun3/fedora/$KREL/sc8280xp-huawei-gaokun3.dtb
 
 cat > /boot/efi/loader/loader.conf <<EOF
-default ${MACHINE_ID}-fedora-gaokun3-${KREL}.conf
+default fedora-gaokun3.conf
 timeout 5
 console-mode keep
 editor no
 EOF
 
-cat > /boot/efi/loader/entries/${MACHINE_ID}-fedora-gaokun3-${KREL}.conf <<EOF
+cat > /boot/efi/loader/entries/fedora-gaokun3.conf <<EOF
 title Fedora Linux 44
 version ${KREL}
-machine-id ${MACHINE_ID}
 sort-key gaokun3
 architecture AA64
-linux /gaokun3/fedora/${KREL}/linux
-initrd /gaokun3/fedora/${KREL}/initrd
+linux /gaokun3/fedora/${KREL}/vmlinuz
+initrd /gaokun3/fedora/${KREL}/initramfs.img
 devicetree /gaokun3/fedora/${KREL}/sc8280xp-huawei-gaokun3.dtb
 options root=UUID=${ROOT_UUID} rootflags=subvol=@ clk_ignore_unused pd_ignore_unused arm64.nopauth iommu.passthrough=0 iommu.strict=0 pcie_aspm.policy=powersupersave efi=noruntime fbcon=rotate:1 usbhid.quirks=0x12d1:0x10b8:0x20000000 consoleblank=0 loglevel=4 psi=1
 EOF
@@ -361,19 +359,18 @@ if [ -n "$KREL_EL2" ]; then
     mkdir -p /boot/efi/EFI/systemd/drivers
     mkdir -p /boot/efi/firmware/qcom/sc8280xp/HUAWEI/gaokun3
 
-    cp /boot/vmlinuz-$KREL_EL2 /boot/efi/gaokun3/fedora/$KREL_EL2/linux
-    cp /boot/initramfs-$KREL_EL2.img /boot/efi/gaokun3/fedora/$KREL_EL2/initrd
+    cp /boot/vmlinuz-$KREL_EL2 /boot/efi/gaokun3/fedora/$KREL_EL2/vmlinuz
+    cp /boot/initramfs-$KREL_EL2.img /boot/efi/gaokun3/fedora/$KREL_EL2/initramfs.img
     cp /boot/dtb-$KREL_EL2/qcom/sc8280xp-huawei-gaokun3-el2.dtb \
        /boot/efi/gaokun3/fedora/$KREL_EL2/sc8280xp-huawei-gaokun3-el2.dtb
 
-    cat > /boot/efi/loader/entries/${MACHINE_ID}-fedora-gaokun3-${KREL_EL2}.conf <<EOF
+    cat > /boot/efi/loader/entries/fedora-gaokun3-el2.conf <<EOF
 title Fedora Linux 44 (EL2 Hypervisor)
 version ${KREL_EL2}
-machine-id ${MACHINE_ID}
 sort-key gaokun3-el2
 architecture AA64
-linux /gaokun3/fedora/${KREL_EL2}/linux
-initrd /gaokun3/fedora/${KREL_EL2}/initrd
+linux /gaokun3/fedora/${KREL_EL2}/vmlinuz
+initrd /gaokun3/fedora/${KREL_EL2}/initramfs.img
 devicetree /gaokun3/fedora/${KREL_EL2}/sc8280xp-huawei-gaokun3-el2.dtb
 options root=UUID=${ROOT_UUID} rootflags=subvol=@ clk_ignore_unused pd_ignore_unused arm64.nopauth iommu.passthrough=0 iommu.strict=0 pcie_aspm.policy=powersupersave modprobe.blacklist=simpledrm efi=noruntime fbcon=rotate:1 usbhid.quirks=0x12d1:0x10b8:0x20000000 consoleblank=0 loglevel=4 psi=1
 EOF

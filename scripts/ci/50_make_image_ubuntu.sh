@@ -177,15 +177,15 @@ fi
 bootctl --esp-path=/boot/efi install
 CHROOT_EOF
 
-MACHINE_ID="$(sudo cat "$MNT/etc/machine-id")"
 ENTRY_DIR="$MNT/boot/efi/loader/entries"
 ESP_OS_DIR="$MNT/boot/efi/gaokun3/ubuntu"
-BASE_ENTRY_FILE="${MACHINE_ID}-ubuntu-gaokun3-${KREL}.conf"
+BASE_ENTRY_FILE="ubuntu-gaokun3.conf"
+EL2_ENTRY_FILE="ubuntu-gaokun3-el2.conf"
 BASE_CMDLINE="root=UUID=${ROOT_UUID} clk_ignore_unused pd_ignore_unused arm64.nopauth iommu.passthrough=0 iommu.strict=0 pcie_aspm.policy=powersupersave modprobe.blacklist=simpledrm efi=noruntime fbcon=rotate:1 usbhid.quirks=0x12d1:0x10b8:0x20000000 consoleblank=0 loglevel=4 psi=1"
 
 sudo mkdir -p "$ENTRY_DIR" "$ESP_OS_DIR/$KREL"
-sudo install -Dm644 "$MNT/boot/vmlinuz-$KREL" "$ESP_OS_DIR/$KREL/linux"
-sudo install -Dm644 "$MNT/boot/initrd.img-$KREL" "$ESP_OS_DIR/$KREL/initrd"
+sudo install -Dm644 "$MNT/boot/vmlinuz-$KREL" "$ESP_OS_DIR/$KREL/vmlinuz"
+sudo install -Dm644 "$MNT/boot/initrd.img-$KREL" "$ESP_OS_DIR/$KREL/initrd.img"
 sudo install -Dm644 \
   "$MNT/usr/lib/linux-image-$KREL/qcom/sc8280xp-huawei-gaokun3.dtb" \
   "$ESP_OS_DIR/$KREL/sc8280xp-huawei-gaokun3.dtb"
@@ -200,22 +200,20 @@ EOF
 sudo tee "$ENTRY_DIR/$BASE_ENTRY_FILE" >/dev/null <<EOF
 title Ubuntu ${UBUNTU_RELEASE}
 version ${KREL}
-machine-id ${MACHINE_ID}
 sort-key gaokun3
 architecture AA64
-linux /gaokun3/ubuntu/${KREL}/linux
-initrd /gaokun3/ubuntu/${KREL}/initrd
+linux /gaokun3/ubuntu/${KREL}/vmlinuz
+initrd /gaokun3/ubuntu/${KREL}/initrd.img
 devicetree /gaokun3/ubuntu/${KREL}/sc8280xp-huawei-gaokun3.dtb
 options ${BASE_CMDLINE}
 EOF
 
 if [[ "$BUILD_EL2" == "true" && -n "$KREL_EL2" ]]; then
-  EL2_ENTRY_FILE="${MACHINE_ID}-ubuntu-gaokun3-${KREL_EL2}.conf"
   EL2_CMDLINE="$BASE_CMDLINE"
 
   sudo mkdir -p "$ESP_OS_DIR/$KREL_EL2" "$MNT/boot/efi/EFI/systemd/drivers" "$MNT/boot/efi/firmware"
-  sudo install -Dm644 "$MNT/boot/vmlinuz-$KREL_EL2" "$ESP_OS_DIR/$KREL_EL2/linux"
-  sudo install -Dm644 "$MNT/boot/initrd.img-$KREL_EL2" "$ESP_OS_DIR/$KREL_EL2/initrd"
+  sudo install -Dm644 "$MNT/boot/vmlinuz-$KREL_EL2" "$ESP_OS_DIR/$KREL_EL2/vmlinuz"
+  sudo install -Dm644 "$MNT/boot/initrd.img-$KREL_EL2" "$ESP_OS_DIR/$KREL_EL2/initrd.img"
   sudo install -Dm644 \
     "$MNT/usr/lib/linux-image-$KREL_EL2/qcom/sc8280xp-huawei-gaokun3-el2.dtb" \
     "$ESP_OS_DIR/$KREL_EL2/sc8280xp-huawei-gaokun3-el2.dtb"
@@ -235,11 +233,10 @@ if [[ "$BUILD_EL2" == "true" && -n "$KREL_EL2" ]]; then
   sudo tee "$ENTRY_DIR/$EL2_ENTRY_FILE" >/dev/null <<EOF
 title Ubuntu ${UBUNTU_RELEASE} (EL2 Hypervisor)
 version ${KREL_EL2}
-machine-id ${MACHINE_ID}
 sort-key gaokun3-el2
 architecture AA64
-linux /gaokun3/ubuntu/${KREL_EL2}/linux
-initrd /gaokun3/ubuntu/${KREL_EL2}/initrd
+linux /gaokun3/ubuntu/${KREL_EL2}/vmlinuz
+initrd /gaokun3/ubuntu/${KREL_EL2}/initrd.img
 devicetree /gaokun3/ubuntu/${KREL_EL2}/sc8280xp-huawei-gaokun3-el2.dtb
 options ${EL2_CMDLINE}
 EOF
