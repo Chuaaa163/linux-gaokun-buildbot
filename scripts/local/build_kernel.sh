@@ -75,14 +75,14 @@ if [ ! -f "$KERN_SRC/arch/arm64/configs/gaokun3_defconfig" ]; then
             git config user.email "builder@example.com"
         fi
         
-        git am "$GAOKUN_DIR"/patches/*.patch
+        echo "Applying standard gaokun3 patches..."
+        git apply --index "$GAOKUN_DIR"/patches/*.patch
+        git commit -m "Apply standard gaokun3 patches"
     else
         echo "Exiting."
         exit 1
     fi
 fi
-
-cd "$KERN_SRC"
 
 if command -v ccache >/dev/null 2>&1; then
     echo "Resetting ccache statistics..."
@@ -95,32 +95,51 @@ build_kernel() {
     local conf_name
     local dtb_name
 
+    cd "$KERN_SRC"
+    
+    # Check current Git tree state by looking at the last commit message
+    local is_el2_patched=false
+    if git log -1 --pretty=%B | grep -q "Apply EL2 patches"; then
+        is_el2_patched=true
+    fi
+
     if [ "$mode" == "el2" ]; then
         out_dir="$KERN_OUT_EL2"
         conf_name="${DISTRO}-gaokun3-el2.conf"
         dtb_name="sc8280xp-huawei-gaokun3-el2.dtb"
         
-        echo -e "\n=== Building EL2 Kernel ==="
-        # Apply EL2 patches only if they haven't been applied yet
-        if git apply --check "$GAOKUN_DIR"/patches/el2/*.patch 2>/dev/null; then
-            echo "Applying EL2 patches..."
+        echo -e "\n=== Preparing Source Tree for EL2 Kernel ==="
+        if [ "$is_el2_patched" = false ]; then
+            echo "Applying EL2 patches to source tree..."
             git apply --index "$GAOKUN_DIR"/patches/el2/*.patch
             git commit -m "Apply EL2 patches"
+        else
+            echo "Source tree is already patched for EL2."
         fi
 
         mkdir -p "$out_dir"
         make O="$out_dir" ARCH=arm64 gaokun3_defconfig
         "$KERN_SRC"/scripts/config --file "$out_dir"/.config --set-str LOCALVERSION "-gaokun3-el2"
+        
     else
         out_dir="$KERN_OUT"
         conf_name="${DISTRO}-gaokun3.conf"
         dtb_name="sc8280xp-huawei-gaokun3.dtb"
         
-        echo -e "\n=== Building Standard Kernel ==="
+        echo -e "\n=== Preparing Source Tree for Standard Kernel ==="
+        if [ "$is_el2_patched" = true ]; then
+            echo "Reverting EL2 patches to restore standard source tree..."
+            # Reset the tree back 1 commit (removing the EL2 patches)
+            git reset --hard HEAD~1
+        else
+            echo "Source tree is already in standard state."
+        fi
+
         mkdir -p "$out_dir"
         make O="$out_dir" ARCH=arm64 gaokun3_defconfig
     fi
 
+    echo "Starting build..."
     make O="$out_dir" ARCH=arm64 olddefconfig
     make O="$out_dir" ARCH=arm64 -j$(nproc)
     make O="$out_dir" ARCH=arm64 modules_prepare
@@ -176,6 +195,7 @@ build_kernel() {
     fi
 }
 
+# Run the build according to user choice
 if [[ "$el2_choice" == "both" ]]; then
     build_kernel "std"
     build_kernel "el2"
