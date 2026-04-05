@@ -1,7 +1,7 @@
-From f294137185ca83a2849f1314eea6ca749c2ce020 Mon Sep 17 00:00:00 2001
+From cea081ae233df3d8b3c18f88b911b33109522377 Mon Sep 17 00:00:00 2001
 From: Pengyu Luo <mitltlatltl@gmail.com>
 Date: Wed, 3 Jul 2024 11:18:04 +0800
-Subject: [PATCH 01/10] arm64: dts: qcom: sc8280xp: Add dsi nodes on SC8280XP
+Subject: [PATCH 01/16] arm64: dts: qcom: sc8280xp: Add dsi nodes on SC8280XP
 
 The DT configuration follows other Samsung 5nm-based Qualcomm SOCs,
 utilizing the same register layouts and clock structures.
@@ -19,7 +19,7 @@ Tested-by: White Lewis <liu224806@gmail.com> # HUAWEI Gaokun3
  1 file changed, 396 insertions(+), 8 deletions(-)
 
 diff --git a/arch/arm64/boot/dts/qcom/sc8280xp.dtsi b/arch/arm64/boot/dts/qcom/sc8280xp.dtsi
-index 706eb1309..73d38f1d6 100644
+index 706eb1309d3f..73d38f1d69fe 100644
 --- a/arch/arm64/boot/dts/qcom/sc8280xp.dtsi
 +++ b/arch/arm64/boot/dts/qcom/sc8280xp.dtsi
 @@ -5,6 +5,7 @@
@@ -518,5 +518,5 @@ index 706eb1309..73d38f1d6 100644
  
  			#clock-cells = <1>;
 -- 
-2.53.0
+2.43.0
 

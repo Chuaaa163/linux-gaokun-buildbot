@@ -1,13 +1,13 @@
-From 734921fd6167f6487e33bd39805fbd87fc1acde6 Mon Sep 17 00:00:00 2001
+From 9ebcdae133d30857365226c2fe8e869dad7fb68e Mon Sep 17 00:00:00 2001
 From: local-build <local-build@localhost>
-Date: Thu, 2 Apr 2026 19:17:34 +0800
+Date: Sun, 5 Apr 2026 13:00:54 +0800
 Subject: [PATCH] arm64: gaokun3: import local dts and defconfig
 
 ---
  .../qcom/sc8280xp-huawei-gaokun3-camera.dtsi  | 149 +++++
- .../boot/dts/qcom/sc8280xp-huawei-gaokun3.dts | 371 ++++++++++---
+ .../boot/dts/qcom/sc8280xp-huawei-gaokun3.dts | 389 ++++++++++---
  arch/arm64/configs/gaokun3_defconfig          | 511 ++++++++++++++++++
- 3 files changed, 947 insertions(+), 84 deletions(-)
+ 3 files changed, 960 insertions(+), 89 deletions(-)
  create mode 100644 arch/arm64/boot/dts/qcom/sc8280xp-huawei-gaokun3-camera.dtsi
  create mode 100644 arch/arm64/configs/gaokun3_defconfig
 
@@ -167,7 +167,7 @@ index 000000000000..be2f9b41df81
 +	};
 +};
 diff --git a/arch/arm64/boot/dts/qcom/sc8280xp-huawei-gaokun3.dts b/arch/arm64/boot/dts/qcom/sc8280xp-huawei-gaokun3.dts
-index 9819454abe13..6e661a2751bb 100644
+index 9819454abe13..4cdeeb50e5b7 100644
 --- a/arch/arm64/boot/dts/qcom/sc8280xp-huawei-gaokun3.dts
 +++ b/arch/arm64/boot/dts/qcom/sc8280xp-huawei-gaokun3.dts
 @@ -11,6 +11,7 @@
@@ -178,13 +178,14 @@ index 9819454abe13..6e661a2751bb 100644
  #include <dt-bindings/iio/qcom,spmi-adc7-pm8350.h>
  #include <dt-bindings/gpio/gpio.h>
  #include <dt-bindings/input/gpio-keys.h>
-@@ -29,22 +30,7 @@ / {
+@@ -29,23 +30,24 @@ / {
  	aliases {
  		i2c4 = &i2c4;
  		i2c15 = &i2c15;
 -		serial1 = &uart2;
--	};
--
++		serial0 = &uart2;
+ 	};
+ 
 -	chosen {
 -		#address-cells = <2>;
 -		#size-cells = <2>;
@@ -198,11 +199,26 @@ index 9819454abe13..6e661a2751bb 100644
 -			stride = <(1600 * 4)>;
 -			format = "a8r8g8b8";
 -		};
-+		serial0 = &uart2;
- 	};
+-	};
++	/* use it as a fallback */
++        chosen {
++                #address-cells = <2>;
++                #size-cells = <2>;
++                ranges;
++
++                framebuffer0: framebuffer@c6200000 {
++                        compatible = "simple-framebuffer";
++                        reg = <0x0 0xc6200000 0x0 (2560 * 1600 * 4)>;
++                        width = <1600>;
++                        height = <2560>;
++                        stride = <(1600 * 4)>;
++                        format = "a8r8g8b8";
++                };
++        };
  
  	wcd938x: audio-codec {
-@@ -87,7 +73,8 @@ key-vol-up {
+ 		compatible = "qcom,wcd9380-codec";
+@@ -87,7 +89,8 @@ key-vol-up {
  			linux,can-disable;
  			wakeup-source;
  		};
@@ -212,7 +228,7 @@ index 9819454abe13..6e661a2751bb 100644
  		switch-mode {
  			label = "Tablet Mode Switch";
  			gpios = <&tlmm 26 GPIO_ACTIVE_HIGH>;
-@@ -96,6 +83,49 @@ switch-mode {
+@@ -96,6 +99,52 @@ switch-mode {
  			debounce-interval = <10>;
  			wakeup-source;
  		};
@@ -250,19 +266,22 @@ index 9819454abe13..6e661a2751bb 100644
 +		regulator-boot-on;
 +	};
 +
-+	vreg_hid: regulator-hid {
++	vreg_dsi_bl: regulator-dsi-bl {
 +		compatible = "regulator-fixed";
 +
-+		regulator-name = "vreg_hid";
-+		gpio = <&tlmm 174 GPIO_ACTIVE_HIGH>;
++		regulator-name = "vreg_dsi_bl";
++
++		gpio = <&tlmm 0 GPIO_ACTIVE_HIGH>;
 +		enable-active-high;
 +
-+		pinctrl-0 = <&hid_reg_en>;
 +		pinctrl-names = "default";
++		pinctrl-0 = <&bl_reg_en>;
++
++		regulator-boot-on;
  	};
  
  	vreg_misc_3p3: regulator-misc-3p3 {
-@@ -158,6 +188,11 @@ vreg_wlan: regulator-wlan {
+@@ -158,6 +207,11 @@ vreg_wlan: regulator-wlan {
  	};
  
  	reserved-memory {
@@ -274,7 +293,7 @@ index 9819454abe13..6e661a2751bb 100644
  		linux,cma {
  			compatible = "shared-dma-pool";
  			size = <0x0 0x8000000>;
-@@ -356,8 +391,8 @@ vreg_l1b: ldo1 {
+@@ -356,8 +410,8 @@ vreg_l1b: ldo1 {
  
  		vreg_l2b: ldo2 {
  			regulator-name = "vreg_l2b";
@@ -285,7 +304,7 @@ index 9819454abe13..6e661a2751bb 100644
  			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
  		};
  
-@@ -382,13 +417,6 @@ vreg_l4b: ldo4 {
+@@ -382,13 +436,6 @@ vreg_l4b: ldo4 {
  						   RPMH_REGULATOR_MODE_HPM>;
  		};
  
@@ -299,7 +318,7 @@ index 9819454abe13..6e661a2751bb 100644
  		vreg_l6b: ldo6 {
  			regulator-name = "vreg_l6b";
  			regulator-min-microvolt = <880000>;
-@@ -399,21 +427,6 @@ vreg_l6b: ldo6 {
+@@ -399,21 +446,6 @@ vreg_l6b: ldo6 {
  			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
  						   RPMH_REGULATOR_MODE_HPM>;
  		};
@@ -321,7 +340,7 @@ index 9819454abe13..6e661a2751bb 100644
  	};
  
  	regulators-1 {
-@@ -435,6 +448,8 @@ vreg_s1c: smps1 {
+@@ -435,6 +467,8 @@ vreg_s1c: smps1 {
  			regulator-always-on;
  		};
  
@@ -330,7 +349,7 @@ index 9819454abe13..6e661a2751bb 100644
  		vreg_l1c: ldo1 {
  			regulator-name = "vreg_l1c";
  			regulator-min-microvolt = <1800000>;
-@@ -444,13 +459,7 @@ vreg_l1c: ldo1 {
+@@ -444,13 +478,7 @@ vreg_l1c: ldo1 {
  			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
  						   RPMH_REGULATOR_MODE_HPM>;
  		};
@@ -345,7 +364,7 @@ index 9819454abe13..6e661a2751bb 100644
  
  		vreg_l8c: ldo8 {
  			regulator-name = "vreg_l8c";
-@@ -498,6 +507,7 @@ regulators-2 {
+@@ -498,6 +526,7 @@ regulators-2 {
  		vdd-l6-l9-l10-supply = <&vreg_s12b>;
  		vdd-l8-supply = <&vreg_s12b>;
  
@@ -353,7 +372,7 @@ index 9819454abe13..6e661a2751bb 100644
  		vreg_l2d: ldo2 {
  			regulator-name = "vreg_l2d";
  			regulator-min-microvolt = <3072000>;
-@@ -508,13 +518,6 @@ vreg_l2d: ldo2 {
+@@ -508,13 +537,6 @@ vreg_l2d: ldo2 {
  						   RPMH_REGULATOR_MODE_HPM>;
  		};
  
@@ -367,7 +386,7 @@ index 9819454abe13..6e661a2751bb 100644
  		vreg_l4d: ldo4 {
  			regulator-name = "vreg_l4d";
  			regulator-min-microvolt = <1200000>;
-@@ -564,7 +567,7 @@ vreg_l9d: ldo9 {
+@@ -564,7 +586,7 @@ vreg_l9d: ldo9 {
  			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
  						   RPMH_REGULATOR_MODE_HPM>;
  		};
@@ -376,7 +395,7 @@ index 9819454abe13..6e661a2751bb 100644
  		vreg_l10d: ldo10 {
  			regulator-name = "vreg_l10d";
  			regulator-min-microvolt = <912000>;
-@@ -574,7 +577,11 @@ vreg_l10d: ldo10 {
+@@ -574,7 +596,11 @@ vreg_l10d: ldo10 {
  			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
  						   RPMH_REGULATOR_MODE_HPM>;
  		};
@@ -388,7 +407,7 @@ index 9819454abe13..6e661a2751bb 100644
  };
  
  &dispcc0 {
-@@ -595,14 +602,16 @@ &gpi_dma2 {
+@@ -595,34 +621,55 @@ &gpi_dma2 {
  
  &gpu {
  	status = "okay";
@@ -402,31 +421,21 @@ index 9819454abe13..6e661a2751bb 100644
 +	};
  };
  
-+/*
  &i2c4 {
 -	clock-frequency = <400000>;
 +	clock-frequency = <1000000>;
  
  	pinctrl-0 = <&i2c4_default>;
  	pinctrl-names = "default";
-@@ -615,14 +624,45 @@ touchscreen@4f {
  
- 		hid-descr-addr = <0x1>;
- 		interrupts-extended = <&tlmm 175 IRQ_TYPE_LEVEL_LOW>;
-+		reset-gpios = <&tlmm 99 GPIO_ACTIVE_LOW>;
-+
-+		panel = <&panel>;
-+		post-reset-deassert-delay-ms = <150>;
+ 	status = "okay";
  
- 		vdd-supply = <&vreg_misc_3p3>;
--		vddl-supply = <&vreg_s10b>;
-+		vddl-supply = <&vreg_hid>;
- 
- 		pinctrl-0 = <&ts0_default>;
- 		pinctrl-names = "default";
- 	};
+-	touchscreen@4f {
+-		compatible = "hid-over-i2c";
+-		reg = <0x4f>;
++	/* himax ic @48 @49, enable this bus for userspace i2c IO */
 +};
-+*/
++
 +&spi6 {
 +	pinctrl-0 = <&spi6_default>;
 +	pinctrl-names = "default";
@@ -436,27 +445,36 @@ index 9819454abe13..6e661a2751bb 100644
 +	touchscreen@0 {
 +		compatible = "himax,hx83121a-ts";
 +		reg = <0>;
-+
+ 
+-		hid-descr-addr = <0x1>;
 +		// TODO: power supply, always on rencently
-+		interrupts-extended = <&tlmm 175 IRQ_TYPE_LEVEL_LOW>;
+ 		interrupts-extended = <&tlmm 175 IRQ_TYPE_LEVEL_LOW>;
 +		reset-gpios = <&tlmm 99 GPIO_ACTIVE_LOW>;
++
 +		panel = <&panel>;
 +
 +		spi-max-frequency = <12000000>;
-+
+ 
+-		vdd-supply = <&vreg_misc_3p3>;
+-		vddl-supply = <&vreg_s10b>;
 +		touchscreen-size-x = <2560>;
 +		touchscreen-size-y = <1600>;
- 
++
++		/*
++		 * internally handle invert first, two transformations are
++		 * non-comutative even if we can swap first.
++		 */
 +		touchscreen-swapped-x-y;
 +		touchscreen-inverted-x;
-+
-+		pinctrl-0 = <&ts0_default>;
-+		pinctrl-names = "default";
-+	};
+ 
+ 		pinctrl-0 = <&ts0_default>;
+ 		pinctrl-names = "default";
+ 	};
+-
  };
  
  &i2c15 {
-@@ -637,7 +677,7 @@ embedded-controller@38 {
+@@ -637,7 +684,7 @@ embedded-controller@38 {
  		compatible = "huawei,gaokun3-ec";
  		reg = <0x38>;
  
@@ -465,7 +483,7 @@ index 9819454abe13..6e661a2751bb 100644
  
  		#address-cells = <1>;
  		#size-cells = <0>;
-@@ -647,7 +687,6 @@ connector@0 {
+@@ -647,7 +694,6 @@ connector@0 {
  			reg = <0>;
  			power-role = "dual";
  			data-role = "dual";
@@ -473,7 +491,7 @@ index 9819454abe13..6e661a2751bb 100644
  			ports {
  				#address-cells = <1>;
  				#size-cells = <0>;
-@@ -655,7 +694,7 @@ ports {
+@@ -655,7 +701,7 @@ ports {
  				port@0 {
  					reg = <0>;
  
@@ -482,7 +500,7 @@ index 9819454abe13..6e661a2751bb 100644
  						remote-endpoint = <&usb_0_dwc3_hs>;
  					};
  				};
-@@ -663,7 +702,7 @@ ucsi0_hs_in: endpoint {
+@@ -663,7 +709,7 @@ ucsi0_hs_in: endpoint {
  				port@1 {
  					reg = <1>;
  
@@ -491,7 +509,7 @@ index 9819454abe13..6e661a2751bb 100644
  						remote-endpoint = <&usb_0_qmpphy_out>;
  					};
  				};
-@@ -725,7 +764,8 @@ &mdss0_dp0 {
+@@ -725,7 +771,8 @@ &mdss0_dp0 {
  };
  
  &mdss0_dp0_out {
@@ -501,7 +519,7 @@ index 9819454abe13..6e661a2751bb 100644
  	remote-endpoint = <&usb_0_qmpphy_dp_in>;
  };
  
-@@ -734,10 +774,91 @@ &mdss0_dp1 {
+@@ -734,10 +781,92 @@ &mdss0_dp1 {
  };
  
  &mdss0_dp1_out {
@@ -532,6 +550,7 @@ index 9819454abe13..6e661a2751bb 100644
 +		vddi-supply = <&vreg_l2b>;
 +		avdd-supply = <&vreg_avdd_5p5>;
 +		avee-supply = <&vreg_avee_5p5>;
++		bl-supply = <&vreg_dsi_bl>;
 +
 +		ports {
 +			#address-cells = <1>;
@@ -594,7 +613,7 @@ index 9819454abe13..6e661a2751bb 100644
  &pcie2a {
  	perst-gpios = <&tlmm 143 GPIO_ACTIVE_LOW>;
  	wake-gpios = <&tlmm 145 GPIO_ACTIVE_LOW>;
-@@ -785,6 +906,9 @@ wifi@0 {
+@@ -785,6 +914,9 @@ wifi@0 {
  		vddrfa0p8-supply = <&vreg_pmu_rfa_0p8>;
  		vddrfa1p2-supply = <&vreg_pmu_rfa_1p2>;
  		vddrfa1p8-supply = <&vreg_pmu_rfa_1p7>;
@@ -604,7 +623,7 @@ index 9819454abe13..6e661a2751bb 100644
  	};
  };
  
-@@ -969,13 +1093,18 @@ &remoteproc_nsp0 {
+@@ -969,13 +1101,18 @@ &remoteproc_nsp0 {
  	status = "okay";
  };
  
@@ -624,7 +643,7 @@ index 9819454abe13..6e661a2751bb 100644
  	audio-routing = "SpkrLeft IN", "WSA_SPK1 OUT",
  			"SpkrRight IN", "WSA_SPK2 OUT",
  			"IN1_HPHL", "HPHL_OUT",
-@@ -1125,6 +1254,8 @@ bluetooth {
+@@ -1125,6 +1262,8 @@ bluetooth {
  		vddrfa1p8-supply = <&vreg_pmu_rfa_1p7>;
  
  		max-speed = <3200000>;
@@ -633,7 +652,7 @@ index 9819454abe13..6e661a2751bb 100644
  	};
  };
  
-@@ -1141,7 +1272,7 @@ &usb_0_dwc3_hs {
+@@ -1141,7 +1280,7 @@ &usb_0_dwc3_hs {
  };
  
  &usb_0_hsphy {
@@ -642,7 +661,7 @@ index 9819454abe13..6e661a2751bb 100644
  	vdda18-supply = <&vreg_l1c>;
  	vdda33-supply = <&vreg_l7d>;
  
-@@ -1149,9 +1280,10 @@ &usb_0_hsphy {
+@@ -1149,9 +1288,10 @@ &usb_0_hsphy {
  };
  
  &usb_0_qmpphy {
@@ -655,7 +674,7 @@ index 9819454abe13..6e661a2751bb 100644
  	orientation-switch;
  
  	status = "okay";
-@@ -1178,7 +1310,7 @@ &usb_1_dwc3_hs {
+@@ -1178,7 +1318,7 @@ &usb_1_dwc3_hs {
  };
  
  &usb_1_hsphy {
@@ -664,7 +683,7 @@ index 9819454abe13..6e661a2751bb 100644
  	vdda18-supply = <&vreg_l1c>;
  	vdda33-supply = <&vreg_l13c>;
  
-@@ -1186,8 +1318,8 @@ &usb_1_hsphy {
+@@ -1186,8 +1326,8 @@ &usb_1_hsphy {
  };
  
  &usb_1_qmpphy {
@@ -675,7 +694,7 @@ index 9819454abe13..6e661a2751bb 100644
  
  	orientation-switch;
  
-@@ -1207,7 +1339,7 @@ &usb_2 {
+@@ -1207,7 +1347,7 @@ &usb_2 {
  };
  
  &usb_2_hsphy0 {
@@ -684,7 +703,7 @@ index 9819454abe13..6e661a2751bb 100644
  	vdda18-supply = <&vreg_l1c>;
  	vdda33-supply = <&vreg_l7d>;
  
-@@ -1215,7 +1347,7 @@ &usb_2_hsphy0 {
+@@ -1215,7 +1355,7 @@ &usb_2_hsphy0 {
  };
  
  &usb_2_hsphy1 {
@@ -693,7 +712,7 @@ index 9819454abe13..6e661a2751bb 100644
  	vdda18-supply = <&vreg_l1c>;
  	vdda33-supply = <&vreg_l7d>;
  
-@@ -1223,7 +1355,7 @@ &usb_2_hsphy1 {
+@@ -1223,7 +1363,7 @@ &usb_2_hsphy1 {
  };
  
  &usb_2_hsphy2 {
@@ -702,7 +721,7 @@ index 9819454abe13..6e661a2751bb 100644
  	vdda18-supply = <&vreg_l8c>;
  	vdda33-supply = <&vreg_l2d>;
  
-@@ -1231,7 +1363,7 @@ &usb_2_hsphy2 {
+@@ -1231,7 +1371,7 @@ &usb_2_hsphy2 {
  };
  
  &usb_2_hsphy3 {
@@ -711,7 +730,7 @@ index 9819454abe13..6e661a2751bb 100644
  	vdda18-supply = <&vreg_l8c>;
  	vdda33-supply = <&vreg_l2d>;
  
-@@ -1239,15 +1371,15 @@ &usb_2_hsphy3 {
+@@ -1239,15 +1379,15 @@ &usb_2_hsphy3 {
  };
  
  &usb_2_qmpphy0 {
@@ -731,7 +750,7 @@ index 9819454abe13..6e661a2751bb 100644
  
  	status = "okay";
  };
-@@ -1263,6 +1395,11 @@ &vamacro {
+@@ -1263,6 +1403,11 @@ &vamacro {
  	status = "okay";
  };
  
@@ -743,28 +762,37 @@ index 9819454abe13..6e661a2751bb 100644
  &wsamacro {
  	status = "okay";
  };
-@@ -1301,7 +1438,19 @@ hastings_reg_en: hastings-reg-en-state {
+@@ -1300,8 +1445,28 @@ hastings_reg_en: hastings-reg-en-state {
+ };
  
  &tlmm {
- 
--	gpio-reserved-ranges = <70 2>, <74 6>, <83 4>, <125 2>, <128 2>, <154 4>;
 +	gpio-reserved-ranges = <70 2>, <74 6>, <83 4>, <125 2>, <128 2>;
 +
 +	avdd_reg_en: avdd-reg-en-state {
 +		pins = "gpio52";
 +		function = "gpio";
 +		drive-strength = <2>;
++		bias-disable;
 +	};
-+
+ 
+-	gpio-reserved-ranges = <70 2>, <74 6>, <83 4>, <125 2>, <128 2>, <154 4>;
 +	avee_reg_en: avee-reg-en-state {
 +		pins = "gpio53";
 +		function = "gpio";
 +		drive-strength = <2>;
++		bias-disable;
++	};
++
++	bl_reg_en: bl-reg-en-state {
++		pins = "gpio0";
++		function = "gpio";
++		drive-strength = <2>;
++		bias-disable;
 +	};
  
  	bt_default: bt-default-state {
  		hstp-bt-en-pins {
-@@ -1318,6 +1467,14 @@ hstp-sw-ctrl-pins {
+@@ -1318,6 +1483,13 @@ hstp-sw-ctrl-pins {
  		};
  	};
  
@@ -773,23 +801,15 @@ index 9819454abe13..6e661a2751bb 100644
 +		function = "gpio";
 +		drive-strength = <2>;
 +		bias-pull-up;
-+		output-high;
 +	};
 +
  	i2c4_default: i2c4-default-state {
  		pins = "gpio171", "gpio172";
  		function = "qup4";
-@@ -1332,6 +1489,20 @@ i2c15_default: i2c15-default-state {
+@@ -1332,6 +1504,13 @@ i2c15_default: i2c15-default-state {
  		bias-pull-up;
  	};
  
-+	hid_reg_en: hid-reg-en-state {
-+		pins = "gpio174";
-+		function = "gpio";
-+		drive-strength = <2>;
-+		bias-pull-up;
-+	};
-+
 +	mdp_vsync_active: mdss-te-state {
 +		pins = "gpio8";
 +		function = "mdp_vsync";
@@ -800,7 +820,7 @@ index 9819454abe13..6e661a2751bb 100644
  	mode_pin_active: mode-pin-state {
  		pins = "gpio26";
  		function = "gpio";
-@@ -1411,6 +1582,39 @@ perst-n-pins {
+@@ -1411,6 +1590,39 @@ perst-n-pins {
  		};
  	};
  
@@ -840,7 +860,7 @@ index 9819454abe13..6e661a2751bb 100644
  	ts0_default: ts0-default-state {
  		int-n-pins {
  			pins = "gpio175";
-@@ -1424,7 +1628,6 @@ reset-n-pins {
+@@ -1424,7 +1636,6 @@ reset-n-pins {
  			function = "gpio";
  			drive-strength = <2>;
  			bias-disable;
@@ -850,7 +870,7 @@ index 9819454abe13..6e661a2751bb 100644
  
 diff --git a/arch/arm64/configs/gaokun3_defconfig b/arch/arm64/configs/gaokun3_defconfig
 new file mode 100644
-index 000000000000..0108b380be22
+index 000000000000..6fbd85ffe407
 --- /dev/null
 +++ b/arch/arm64/configs/gaokun3_defconfig
 @@ -0,0 +1,511 @@
@@ -1149,7 +1169,7 @@ index 000000000000..0108b380be22
 +CONFIG_V4L_PLATFORM_DRIVERS=y
 +CONFIG_V4L_MEM2MEM_DRIVERS=y
 +CONFIG_VIDEO_QCOM_CAMSS=m
-+CONFIG_VIDEO_QCOM_VENUS=m
++CONFIG_VIDEO_QCOM_IRIS=m
 +CONFIG_VIDEO_HI846=m
 +CONFIG_DRM=m
 +CONFIG_DRM_LOAD_EDID_FIRMWARE=y

@@ -1,14 +1,14 @@
-From ba49ec29b1b2442e8a9deab5427b9eb7a1603fee Mon Sep 17 00:00:00 2001
+From 1ad2b093889c3e39becf78bb615ad710b70219e4 Mon Sep 17 00:00:00 2001
 From: cool <bilibili@att.net>
 Date: Fri, 20 Mar 2026 16:46:00 +0800
-Subject: [PATCH 10/10] drm/panel: himax-hx83121a: enable DSC by default
+Subject: [PATCH 11/16] drm/panel: himax-hx83121a: enable DSC by default
 
 ---
  drivers/gpu/drm/panel/panel-himax-hx83121a.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/gpu/drm/panel/panel-himax-hx83121a.c b/drivers/gpu/drm/panel/panel-himax-hx83121a.c
-index ebe643ba4..891c054f7 100644
+index bfd208183461..75dff2fe8cba 100644
 --- a/drivers/gpu/drm/panel/panel-himax-hx83121a.c
 +++ b/drivers/gpu/drm/panel/panel-himax-hx83121a.c
 @@ -23,9 +23,9 @@
@@ -24,5 +24,5 @@ index ebe643ba4..891c054f7 100644
  struct himax {
  	struct drm_panel panel;
 -- 
-2.53.0
+2.43.0
 

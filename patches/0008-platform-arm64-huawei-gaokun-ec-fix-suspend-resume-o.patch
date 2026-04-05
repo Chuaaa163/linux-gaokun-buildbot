@@ -1,7 +1,8 @@
-From daeec6a4f4c2f5f7b1235455b1b3cb8c5fbe87e6 Mon Sep 17 00:00:00 2001
+From 1e1d234b37badac7165d20f8103e942aabfdcada Mon Sep 17 00:00:00 2001
 From: Lewis <lewis@matebook-e-go-linux>
 Date: Mon, 9 Feb 2026 00:00:00 +0800
-Subject: [PATCH] platform/arm64: huawei-gaokun-ec: fix suspend/resume ordering
+Subject: [PATCH 08/16] platform/arm64: huawei-gaokun-ec: fix suspend/resume
+ ordering
 
 Use SYSTEM_SLEEP_PM_OPS instead of NOIRQ_SYSTEM_SLEEP_PM_OPS for the
 gaokun EC driver's power management callbacks.
@@ -19,7 +20,7 @@ Signed-off-by: Lewis <lewis@matebook-e-go-linux>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/platform/arm64/huawei-gaokun-ec.c b/drivers/platform/arm64/huawei-gaokun-ec.c
-index a83ddc20b..663e8008d 100644
+index a83ddc20b5a3..663e8008dcbb 100644
 --- a/drivers/platform/arm64/huawei-gaokun-ec.c
 +++ b/drivers/platform/arm64/huawei-gaokun-ec.c
 @@ -807,7 +807,7 @@ static const struct of_device_id gaokun_ec_of_match[] = {

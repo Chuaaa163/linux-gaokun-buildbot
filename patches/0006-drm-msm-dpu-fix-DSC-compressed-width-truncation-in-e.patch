@@ -1,7 +1,7 @@
-From 1afd7988e5ff8b3692c8ad4a6b44259a054c376f Mon Sep 17 00:00:00 2001
+From a049afe6be3b24c4a60110f874eb6ad7fde6474c Mon Sep 17 00:00:00 2001
 From: Lewis White <whitelewis@matebook-e-go>
 Date: Sat, 7 Feb 2026 01:59:26 +0700
-Subject: [PATCH 06/10] drm/msm/dpu: fix DSC compressed width truncation in
+Subject: [PATCH 06/16] drm/msm/dpu: fix DSC compressed width truncation in
  encoder
 
 The DPU video-mode encoder computes the compressed width for DSC using
@@ -27,7 +27,7 @@ Signed-off-by: Lewis White <whitelewis@matebook-e-go>
  1 file changed, 5 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys_vid.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys_vid.c
-index 0ba777bda..8dfd88a87 100644
+index 0ba777bda253..8dfd88a87443 100644
 --- a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys_vid.c
 +++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys_vid.c
 @@ -130,11 +130,12 @@ static void drm_mode_to_intf_timing_params(
@@ -48,5 +48,5 @@ index 0ba777bda..8dfd88a87 100644
  	}
  }
 -- 
-2.53.0
+2.43.0
 

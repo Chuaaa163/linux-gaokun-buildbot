@@ -10,6 +10,7 @@
 /* TODO: DT parse: vdd_dig & avdd_analog */
 
 #define DEBUG
+#include<linux/sort.h>
 #include<linux/dev_printk.h>
 
 #include <linux/delay.h>
@@ -19,7 +20,6 @@
 #include <linux/limits.h>
 #include <linux/mutex.h>
 #include <linux/module.h>
-#include <linux/of.h>
 #include <linux/spi/spi.h>
 #include <linux/math.h>
 
@@ -34,9 +34,9 @@
 #define HIMAX_REG_SZ					4U
 #define HIMAX_MAX_RX					60U
 #define HIMAX_MAX_TX					40U
-#define HIMAX_MAX_TOUCH				10
+#define HIMAX_MAX_TOUCH					10
 #define HIMAX_HX83121A_SAFE_MODE_PASSWORD		0x9527
-/* FIXME: this is for hx83120j */
+/* FIXME: this is for hx83120j, ~4928 for hx83121a 40 * 60 * 2 + 128 */
 #define HIMAX_HX83121A_STACK_SIZE			128U
 #define HIMAX_HX83121A_FULL_STACK_SZ \
 (HIMAX_HX83121A_STACK_SIZE + \
@@ -136,11 +136,10 @@ struct himax_ts_data {
 };
 
 static void himax_report_tracked_state(struct himax_ts_data *ts, bool report_on);
-static int himax_disable_fw_reload(struct himax_ts_data *ts);
+static int himax_disable_fw_reload(struct himax_ts_data *ts, bool disable);
 static int himax_mcu_power_on_init(struct himax_ts_data *ts);
 static int himax_mcu_check_crc(struct himax_ts_data *ts, u32 start_addr,
 			       int reload_length, u32 *crc_result);
-static int himax_wait_for_panel(struct device *dev);
 
 /*
  * 1st byte is the spi function select, 2nd byte is the command belong to the
@@ -374,9 +373,9 @@ err:
 static void himax_pin_reset(struct himax_ts_data *ts)
 {
 	/* TODO: reduce to 10ms, 20ms? */
-	gpiod_set_value(ts->gpiod_rst, 1);
+	gpiod_set_value_cansleep(ts->gpiod_rst, 1);
 	usleep_range(20000, 20100);
-	gpiod_set_value(ts->gpiod_rst, 0);
+	gpiod_set_value_cansleep(ts->gpiod_rst, 0);
 	usleep_range(50000, 50100);
 }
 
@@ -556,7 +555,6 @@ static int hx83121a_chip_detect(struct himax_ts_data *ts)
 	int ret;
 	u32 retry_cnt;
 	const u32 read_icid_retry_limit = 5;
-	const u32 ic_id_mask = GENMASK(31, 8);
 	union himax_dword_data data;
 
 	himax_pin_reset(ts);
@@ -578,14 +576,14 @@ static int hx83121a_chip_detect(struct himax_ts_data *ts)
 			return ret;
 		}
 
-		data.dword = le32_to_cpu(data.dword);
 		/*
 		 * For suffix > F, it should be (data.byte[1] & 0xF) + 'A'; // or 'a'
 		 * e.g. hx83102j: 0x83102900
 		 */
-		dev_info(ts->dev, "Detected IC HX%X%X%X\n", data.byte[3], data.byte[2], data.byte[1]);
+		data.dword = le32_to_cpu(data.dword) >> 8;
+		dev_info(ts->dev, "Detected IC HX%06X\n", data.dword);
 
-		if ((data.dword & ic_id_mask) == 0x83121a00)
+		if (data.dword == 0x83121a)
 			return 0;
 	}
 	return -ENODEV;
@@ -609,16 +607,19 @@ static int himax_input_dev_config(struct himax_ts_data *ts)
 	input_dev->phys = "input/ts";
 	input_dev->id.bustype = BUS_SPI;
 
+	/* Standard capacitive touchscreen fuzz (8) to absorb static finger deformation
+	 * during clicks, preventing libinput from treating 10px drifts as swipes. */
 	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_X,
-			     0, SZ_64K - 1, 0, 0);
+			     0, SZ_64K - 1, 8, 0);
 	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_Y,
-			     0, SZ_64K - 1, 0, 0);
+			     0, SZ_64K - 1, 8, 0);
 	// TODO: 根据触点附近数据集建模得到
 	// input_set_abs_params(ts->input_dev, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
+	input_set_abs_params(ts->input_dev, ABS_MT_PRESSURE, 0, 4095, 0, 0);
 	touchscreen_parse_properties(ts->input_dev, true, &ts->props);
 
 	ret = input_mt_init_slots(ts->input_dev, HIMAX_MAX_TOUCH,
-				    INPUT_MT_DIRECT | INPUT_MT_DROP_UNUSED);
+				  INPUT_MT_DIRECT | INPUT_MT_DROP_UNUSED);
 	if (ret)
 		return ret;
 
@@ -639,7 +640,8 @@ static void himax_release_all_touches(struct himax_ts_data *ts)
 		himax_report_tracked_state(ts, false);
 }
 
-static int himax_hw_reinit(struct himax_ts_data *ts, bool check_crc)
+static int himax_hw_reinit(struct himax_ts_data *ts, bool check_crc,
+			   bool disable_flash_reload)
 {
 	u32 crc_hw;
 	int ret;
@@ -662,9 +664,9 @@ static int himax_hw_reinit(struct himax_ts_data *ts, bool check_crc)
 		}
 	}
 
-	ret = himax_disable_fw_reload(ts);
+	ret = himax_disable_fw_reload(ts, disable_flash_reload);
 	if (ret < 0) {
-		dev_err(ts->dev, "%s: disable FW reload fail\n", __func__);
+		dev_err(ts->dev, "%s: set FW reload policy fail\n", __func__);
 		goto out_enable_irq;
 	}
 
@@ -679,14 +681,14 @@ out_enable_irq:
 }
 
 static int himax_hw_reinit_retry(struct himax_ts_data *ts, bool check_crc,
-				 int retries, unsigned int delay_ms,
-				 const char *reason)
+				 bool disable_flash_reload, int retries,
+				 unsigned int delay_ms, const char *reason)
 {
 	int ret;
 	int attempt;
 
 	for (attempt = 1; attempt <= retries; attempt++) {
-		ret = himax_hw_reinit(ts, check_crc);
+		ret = himax_hw_reinit(ts, check_crc, disable_flash_reload);
 		if (!ret)
 			return 0;
 
@@ -720,7 +722,7 @@ static int himax_panel_prepared(struct drm_panel_follower *follower)
 		return 0;
 	}
 
-	ret = himax_hw_reinit_retry(ts, false,
+	ret = himax_hw_reinit_retry(ts, false, false,
 				    HIMAX_PANEL_REINIT_RETRIES,
 				    HIMAX_PANEL_REINIT_DELAY_MS,
 				    "panel");
@@ -771,7 +773,7 @@ static ssize_t inplace_reset_store(struct device *dev,
 		goto out_unlock;
 	}
 
-	ret = himax_hw_reinit(ts, false);
+	ret = himax_hw_reinit(ts, false, false);
 out_unlock:
 	himax_unlock(ts);
 	if (ret)
@@ -786,33 +788,6 @@ static const struct drm_panel_follower_funcs himax_panel_follower_funcs = {
 	.panel_prepared = himax_panel_prepared,
 	.panel_unpreparing = himax_panel_unpreparing,
 };
-
-static int himax_wait_for_panel(struct device *dev)
-{
-	struct device_node *panel_np;
-	struct drm_panel *panel;
-	int ret;
-
-	panel_np = of_parse_phandle(dev->of_node, "panel", 0);
-	if (!panel_np)
-		return -ENODEV;
-
-	panel = of_drm_find_panel(panel_np);
-	of_node_put(panel_np);
-	if (IS_ERR(panel)) {
-		ret = PTR_ERR(panel);
-		/*
-		 * The panel node exists in DT, but its DRM device can still show
-		 * up after the SPI touchscreen. Treat that as a deferred probe so
-		 * the core retries once the panel driver registers.
-		 */
-		if (ret == -ENODEV)
-			ret = -EPROBE_DEFER;
-		return ret;
-	}
-
-	return 0;
-}
 
 /* -------------------------------------------------------------------------- */
 /* 中断处理 */
@@ -1306,7 +1281,7 @@ static int himax_mcu_assign_sorting_mode(struct himax_ts_data *ts, u8 *tmp_data_
  * Tell FW not to reload data from flash. It needs to be
  * set before FW start running.
  */
-static int himax_disable_fw_reload(struct himax_ts_data *ts)
+static int himax_disable_fw_reload(struct himax_ts_data *ts, bool disable)
 {
 	union himax_dword_data data = {
 		/*
@@ -1315,7 +1290,7 @@ static int himax_disable_fw_reload(struct himax_ts_data *ts)
 		 *            <= 0x5aa5, there has flash, but not reload
 		 *            <= 0x0000, there has flash, and reload
 		 */
-		.dword = cpu_to_le32(0x5aa5) // TODO: handle it for zf
+		.dword = cpu_to_le32(disable ? 0x5aa5 : 0x0000) // TODO: handle it for zf
 	};
 
 	return himax_mcu_register_write(ts, HIMAX_DSRAM_ADDR_FLASH_RELOAD, data.byte, 4);
@@ -1513,12 +1488,6 @@ static int himax_spi_probe(struct spi_device *spi)
 	if (ret) {
 		dev_err(ts->dev, "failed to create inplace_reset sysfs attribute\n");
 		return ret;
-	}
-
-	ret = himax_wait_for_panel(ts->dev);
-	if (ret) {
-		device_remove_file(ts->dev, &dev_attr_inplace_reset);
-		return dev_err_probe(ts->dev, ret, "panel is not ready yet\n");
 	}
 
 	ts->panel_follower.funcs = &himax_panel_follower_funcs;

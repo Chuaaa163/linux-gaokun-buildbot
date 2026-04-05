@@ -1,7 +1,7 @@
-From 655648f34a630e22d5c9a312d59433118a21d6db Mon Sep 17 00:00:00 2001
+From 13b9d3b378767edaa07067b664022baf09c56d13 Mon Sep 17 00:00:00 2001
 From: Lewis White <whitelewis@matebook-e-go>
 Date: Sat, 7 Feb 2026 02:08:18 +0700
-Subject: [PATCH 07/10] drm/msm/dpu: fix widebus data_width truncation in INTF
+Subject: [PATCH 07/16] drm/msm/dpu: fix widebus data_width truncation in INTF
 
 When wide-bus mode is enabled, the INTF block computes data_width as:
 
@@ -24,7 +24,7 @@ Signed-off-by: Lewis White <whitelewis@matebook-e-go>
  1 file changed, 6 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.c
-index 7e620f590..d0b5370da 100644
+index 7e620f590984..d0b5370dabe4 100644
 --- a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.c
 +++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.c
 @@ -177,9 +177,14 @@ static void dpu_hw_intf_setup_timing_engine(struct dpu_hw_intf *intf,
@@ -44,5 +44,5 @@ index 7e620f590..d0b5370da 100644
  	/* TODO: handle DSC+DP case, we only handle DSC+DSI case so far */
  	if (p->compression_en && !dp_intf &&
 -- 
-2.53.0
+2.43.0
 

@@ -1,7 +1,7 @@
-From 6940bb3bc91583b006e69601ec5b6c9b4c6f10c6 Mon Sep 17 00:00:00 2001
+From ddda5c07fc75a03d817bfe8250c6e0ae265d4b15 Mon Sep 17 00:00:00 2001
 From: Pengyu Luo <mitltlatltl@gmail.com>
 Date: Tue, 3 Mar 2026 18:46:30 +0800
-Subject: [PATCH v3 2/2] drm/panel: Add Himax HX83121A panel driver
+Subject: [PATCH 03/16] drm/panel: Add Himax HX83121A panel driver
 
 Add a driver for panels using the Himax HX83121A Display Driver IC,
 including support for the BOE/CSOT PPC357DB1-4, found in HUAWEI
@@ -9,17 +9,14 @@ Matebook E Go series (Gaokun2/3).
 
 Signed-off-by: Pengyu Luo <mitltlatltl@gmail.com>
 ---
-v3:
-- use backlight_enable instead of backlight_update_status to avoid NULL ptr
----
  drivers/gpu/drm/panel/Kconfig                |  11 +
  drivers/gpu/drm/panel/Makefile               |   1 +
- drivers/gpu/drm/panel/panel-himax-hx83121a.c | 749 +++++++++++++++++++
- 3 files changed, 761 insertions(+)
+ drivers/gpu/drm/panel/panel-himax-hx83121a.c | 750 +++++++++++++++++++
+ 3 files changed, 762 insertions(+)
  create mode 100644 drivers/gpu/drm/panel/panel-himax-hx83121a.c
 
 diff --git a/drivers/gpu/drm/panel/Kconfig b/drivers/gpu/drm/panel/Kconfig
-index a99f2e2a49..c18ff46e2e 100644
+index 307152ad7759..65008b8dad32 100644
 --- a/drivers/gpu/drm/panel/Kconfig
 +++ b/drivers/gpu/drm/panel/Kconfig
 @@ -203,6 +203,17 @@ config DRM_PANEL_HIMAX_HX83112B
@@ -41,7 +38,7 @@ index a99f2e2a49..c18ff46e2e 100644
  	tristate "HIMAX HX8394 MIPI-DSI LCD panels"
  	depends on OF
 diff --git a/drivers/gpu/drm/panel/Makefile b/drivers/gpu/drm/panel/Makefile
-index 3336a2c0cd..372d67b8cc 100644
+index aeffaa95666d..1964307cc7fd 100644
 --- a/drivers/gpu/drm/panel/Makefile
 +++ b/drivers/gpu/drm/panel/Makefile
 @@ -21,6 +21,7 @@ obj-$(CONFIG_DRM_PANEL_HIMAX_HX8279) += panel-himax-hx8279.o
@@ -54,10 +51,10 @@ index 3336a2c0cd..372d67b8cc 100644
  obj-$(CONFIG_DRM_PANEL_ILITEK_IL9322) += panel-ilitek-ili9322.o
 diff --git a/drivers/gpu/drm/panel/panel-himax-hx83121a.c b/drivers/gpu/drm/panel/panel-himax-hx83121a.c
 new file mode 100644
-index 0000000000..ebe643ba41
+index 000000000000..bfd208183461
 --- /dev/null
 +++ b/drivers/gpu/drm/panel/panel-himax-hx83121a.c
-@@ -0,0 +1,749 @@
+@@ -0,0 +1,750 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Himax HX83121A DriverIC panels driver
@@ -122,6 +119,7 @@ index 0000000000..ebe643ba41
 +	{ .supply = "vddi" },
 +	{ .supply = "avdd" },
 +	{ .supply = "avee" },
++	{ .supply = "bl" },
 +};
 +
 +static inline struct himax *to_himax(struct drm_panel *panel)
@@ -808,5 +806,5 @@ index 0000000000..ebe643ba41
 +MODULE_DESCRIPTION("Himax HX83121A DriverIC panels driver");
 +MODULE_LICENSE("GPL");
 -- 
-2.53.0
+2.43.0
 

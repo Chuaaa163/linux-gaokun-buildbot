@@ -1,7 +1,7 @@
-From 1750210bf80ff6f3adcd0ae1cd2a114d544ad38e Mon Sep 17 00:00:00 2001
+From 0840e365535dc369e958f2e51e9db078d7f242f7 Mon Sep 17 00:00:00 2001
 From: Lewis White <whitelewis@matebook-e-go>
 Date: Sat, 7 Feb 2026 01:53:26 +0700
-Subject: [PATCH 05/10] clk: qcom: dispcc-sc8280xp: remove CLK_SET_RATE_PARENT
+Subject: [PATCH 05/16] clk: qcom: dispcc-sc8280xp: remove CLK_SET_RATE_PARENT
  from byte_div_clk_src dividers
 
 The four byte_div_clk_src dividers (disp{0,1}_cc_mdss_byte{0,1}_div_clk_src)
@@ -24,7 +24,7 @@ Signed-off-by: Lewis White <whitelewis@matebook-e-go>
  1 file changed, 4 deletions(-)
 
 diff --git a/drivers/clk/qcom/dispcc-sc8280xp.c b/drivers/clk/qcom/dispcc-sc8280xp.c
-index 9f3284efc..acc927c21 100644
+index 9f3284efcbdd..acc927c2142a 100644
 --- a/drivers/clk/qcom/dispcc-sc8280xp.c
 +++ b/drivers/clk/qcom/dispcc-sc8280xp.c
 @@ -1160,7 +1160,6 @@ static struct clk_regmap_div disp0_cc_mdss_byte0_div_clk_src = {
@@ -60,5 +60,5 @@ index 9f3284efc..acc927c21 100644
  	},
  };
 -- 
-2.53.0
+2.43.0
 
