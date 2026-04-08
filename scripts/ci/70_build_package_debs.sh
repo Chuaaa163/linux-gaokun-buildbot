@@ -108,13 +108,25 @@ build_kernel_variant() {
   depmod -b "$modules_stage" -a "$krel"
 
   rsync -a --delete --exclude '.git' "$src_dir/" "$headers_tree/"
-  rsync -a "$out_dir/" "$headers_tree/"
+  # Exclude the top-level Makefile from the build-output rsync: $out_dir/Makefile is a
+  # CI-generated wrapper that hard-codes absolute runner paths (KBUILD_OUTPUT / include).
+  # The real kernel Makefile already came from $src_dir above and must be preserved so
+  # that DKMS / external-module builds work on the target machine.
+  rsync -a --exclude 'Makefile' "$out_dir/" "$headers_tree/"
   find "$headers_tree" -type f \
     \( -name '*.o' -o -name '*.ko' -o -name '*.a' -o -name '*.cmd' -o -name '*.mod' -o -name '*.mod.c' \) \
     -delete
   find "$headers_tree" -type l \( -name build -o -name source \) -delete
   ln -s "../../../src/linux-headers-$krel" "$headers_stage/lib/modules/$krel/build"
   ln -s "../../../src/linux-headers-$krel" "$headers_stage/lib/modules/$krel/source"
+
+  # Sanity-check: the top-level Makefile must be the real kernel Makefile, not the
+  # CI-generated wrapper.  If KBUILD_OUTPUT appears in it, the headers DEB would
+  # reference absolute runner paths and break external module builds on target machines.
+  if grep -qF 'KBUILD_OUTPUT' "$headers_tree/Makefile" 2>/dev/null; then
+    echo "ERROR: $headers_tree/Makefile is a CI wrapper Makefile (contains KBUILD_OUTPUT). External module / DKMS builds would fail on target machines." >&2
+    exit 1
+  fi
 
   read -r -d '' postinst_script <<EOF || true
 temp_kernel_dir=\$(mktemp -d)
