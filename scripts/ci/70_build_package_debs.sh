@@ -107,12 +107,15 @@ build_kernel_variant() {
         "$modules_stage/lib/modules/$krel/source"
   depmod -b "$modules_stage" -a "$krel"
 
-  rsync -a --delete --exclude '.git' "$src_dir/" "$headers_tree/"
-  # Exclude the top-level Makefile from the build-output rsync: $out_dir/Makefile is a
-  # CI-generated wrapper that hard-codes absolute runner paths (KBUILD_OUTPUT / include).
-  # The real kernel Makefile already came from $src_dir above and must be preserved so
-  # that DKMS / external-module builds work on the target machine.
-  rsync -a --exclude 'Makefile' "$out_dir/" "$headers_tree/"
+  # Exclude the top-level Makefile from both rsyncs: $out_dir/Makefile is a CI-generated
+  # wrapper that hard-codes absolute runner paths (KBUILD_OUTPUT / include path), and
+  # $src_dir/Makefile may also be a wrapper in some build configurations.  We install the
+  # correct top-level Makefile explicitly below from the clean git checkout.
+  rsync -a --delete --exclude '.git' --exclude '/Makefile' "$src_dir/" "$headers_tree/"
+  rsync -a --exclude '/Makefile' "$out_dir/" "$headers_tree/"
+  # Install the real top-level kernel Makefile from the unmodified git checkout so that
+  # external module / DKMS builds on target machines work correctly.
+  install -Dm644 "$WORKDIR/mainline-linux/Makefile" "$headers_tree/Makefile"
   find "$headers_tree" -type f \
     \( -name '*.o' -o -name '*.ko' -o -name '*.a' -o -name '*.cmd' -o -name '*.mod' -o -name '*.mod.c' \) \
     -delete
@@ -120,11 +123,12 @@ build_kernel_variant() {
   ln -s "../../../src/linux-headers-$krel" "$headers_stage/lib/modules/$krel/build"
   ln -s "../../../src/linux-headers-$krel" "$headers_stage/lib/modules/$krel/source"
 
-  # Sanity-check: the top-level Makefile must be the real kernel Makefile, not the
-  # CI-generated wrapper.  If KBUILD_OUTPUT appears in it, the headers DEB would
-  # reference absolute runner paths and break external module builds on target machines.
-  if grep -qF 'KBUILD_OUTPUT' "$headers_tree/Makefile" 2>/dev/null; then
-    echo "ERROR: $headers_tree/Makefile is a CI wrapper Makefile (contains KBUILD_OUTPUT). External module / DKMS builds would fail on target machines." >&2
+  # Sanity-check: the top-level Makefile must be the real kernel Makefile, not a
+  # CI-generated wrapper.  Fail fast if it contains KBUILD_OUTPUT or any absolute
+  # runner path (/home/runner/work), either of which would break external module /
+  # DKMS builds on target machines.
+  if grep -qE 'KBUILD_OUTPUT|/home/runner/work' "$headers_tree/Makefile" 2>/dev/null; then
+    echo "ERROR: $headers_tree/Makefile is a CI wrapper Makefile (contains KBUILD_OUTPUT or runner absolute paths). External module / DKMS builds would fail on target machines." >&2
     exit 1
   fi
 
